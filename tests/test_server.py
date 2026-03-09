@@ -3,7 +3,7 @@ import json
 
 from assistant_ops.bootstrap import initialize_workspace
 from assistant_ops.config import Settings
-from assistant_ops.server import build_server
+from assistant_ops.server import _build_google_client, build_server
 
 
 def test_server_registers_expected_tools(tmp_path: Path) -> None:
@@ -74,3 +74,39 @@ def test_initialize_workspace_migrates_old_integrations_schema(tmp_path: Path) -
         "password_service": None,
         "password_account": None,
     }
+    assert payload["google"] == {
+        "client_id": None,
+        "oauth_port": 8765,
+        "client_secret_service": None,
+        "client_secret_account": None,
+        "refresh_token_service": None,
+        "refresh_token_account": None,
+    }
+
+
+def test_build_google_client_returns_client_when_configured(tmp_path: Path, monkeypatch) -> None:
+    settings = Settings.for_workspace(Path(tmp_path))
+    settings = settings.model_copy(
+        update={
+            "google_client_id": "client-id",
+            "google_client_secret_service": "assistant-ops.google",
+            "google_client_secret_account": "client-secret",
+            "google_refresh_token_service": "assistant-ops.google",
+            "google_refresh_token_account": "refresh-token",
+        }
+    )
+
+    class FakeCredentials:
+        def is_available(self) -> bool:
+            return True
+
+        def read(self, *, service: str, account: str) -> str:
+            if account == "client-secret":
+                return "client-secret-value"
+            assert service == "assistant-ops.google"
+            assert account == "refresh-token"
+            return "refresh-token-value"
+
+    client = _build_google_client(settings=settings, credential_provider=FakeCredentials())
+
+    assert client is not None

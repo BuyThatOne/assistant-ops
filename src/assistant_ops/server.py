@@ -6,6 +6,8 @@ from mcp.server.fastmcp import FastMCP
 
 from assistant_ops.adapters import (
     FileAccountingProvider,
+    GoogleCalendarProvider,
+    GoogleGmailProvider,
     LiveCibcBankingProvider,
     JsonCalendarProvider,
     JsonEmailProvider,
@@ -16,6 +18,7 @@ from assistant_ops.audit import AuditLogger
 from assistant_ops.cibc_session import CibcSessionManager
 from assistant_ops.config import Settings
 from assistant_ops.credentials import MacOSKeychainCredentialProvider
+from assistant_ops.google_client import GoogleApiClient
 from assistant_ops.bootstrap import initialize_workspace
 from assistant_ops.policy import PolicyEngine
 from assistant_ops.playwright_runner import PlaywrightCli
@@ -27,6 +30,7 @@ def build_server(workspace_root: Path, *, actor: str = "local-operator") -> Fast
     settings = Settings.for_workspace(workspace_root)
     audit_logger = AuditLogger(settings.audit_log_path)
     approvals = ApprovalStore(settings.approvals_path)
+    credential_provider = MacOSKeychainCredentialProvider(security_path=settings.security_path)
     cibc_session_manager = CibcSessionManager(
         playwright=PlaywrightCli(
             pwcli_path=settings.pwcli_path,
@@ -35,21 +39,27 @@ def build_server(workspace_root: Path, *, actor: str = "local-operator") -> Fast
         ),
         workspace_root=workspace_root,
     )
+    email_provider = JsonEmailProvider(settings.email_data_path)
+    calendar_provider = JsonCalendarProvider(settings.calendar_data_path)
+    google_client = _build_google_client(settings=settings, credential_provider=credential_provider)
+    if google_client is not None:
+        email_provider = GoogleGmailProvider(client=google_client)
+        calendar_provider = GoogleCalendarProvider(client=google_client)
 
     service = GuardedService(
         policy_engine=PolicyEngine(),
         approval_store=approvals,
         audit_logger=audit_logger,
         workspace_root=workspace_root,
-        email_provider=JsonEmailProvider(settings.email_data_path),
-        calendar_provider=JsonCalendarProvider(settings.calendar_data_path),
+        email_provider=email_provider,
+        calendar_provider=calendar_provider,
         accounting_provider=FileAccountingProvider(),
         banking_provider=LiveCibcBankingProvider(
             session_manager=cibc_session_manager,
             parser=CibcSnapshotParser(),
         ),
         cibc_session_manager=cibc_session_manager,
-        credential_provider=MacOSKeychainCredentialProvider(security_path=settings.security_path),
+        credential_provider=credential_provider,
         cibc_card_number_service=settings.cibc_card_number_service,
         cibc_card_number_account=settings.cibc_card_number_account,
         cibc_password_service=settings.cibc_password_service,
@@ -150,3 +160,37 @@ def build_server(workspace_root: Path, *, actor: str = "local-operator") -> Fast
         return service.list_recent_actions(limit=limit).model_dump(mode="json")
 
     return mcp
+
+
+def _build_google_client(
+    *,
+    settings: Settings,
+    credential_provider: MacOSKeychainCredentialProvider,
+) -> GoogleApiClient | None:
+    if (
+        not settings.google_client_id
+        or not settings.google_client_secret_service
+        or not settings.google_client_secret_account
+        or not settings.google_refresh_token_service
+        or not settings.google_refresh_token_account
+        or not credential_provider.is_available()
+    ):
+        return None
+
+    try:
+        client_secret = credential_provider.read(
+            service=settings.google_client_secret_service,
+            account=settings.google_client_secret_account,
+        )
+        refresh_token = credential_provider.read(
+            service=settings.google_refresh_token_service,
+            account=settings.google_refresh_token_account,
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+    return GoogleApiClient(
+        client_id=settings.google_client_id,
+        client_secret=client_secret,
+        refresh_token=refresh_token,
+    )

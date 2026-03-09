@@ -58,6 +58,36 @@ export ASSISTANT_OPS_SECURITY_PATH="/usr/bin/security"
 export ASSISTANT_OPS_CIBC_PLAYWRIGHT_SESSION="cibc-banking"
 ```
 
+For Gmail and Google Calendar, store the client secret in Keychain:
+
+```bash
+security add-generic-password -U -s assistant-ops.google -a client-secret -w 'YOUR_GOOGLE_CLIENT_SECRET'
+```
+
+Then run:
+
+```bash
+assistant-ops-configure-google \
+  --workspace "$WORKSPACE" \
+  --google-client-id 'your-client-id.apps.googleusercontent.com' \
+  --google-oauth-port 8765 \
+  --google-client-secret-service assistant-ops.google \
+  --google-client-secret-account client-secret \
+  --google-refresh-token-service assistant-ops.google \
+  --google-refresh-token-account refresh-token
+
+assistant-ops-google-auth --workspace "$WORKSPACE"
+```
+
+See [Google Setup Guide](GOOGLE_SETUP.md) for the Google Cloud setup.
+
+Live-validated Google behavior on macOS:
+
+- OAuth desktop flow completes through the localhost callback
+- refresh token is written to macOS Keychain
+- Gmail thread listing and draft creation work against a real account
+- Google Calendar event listing and event creation work against a real account
+
 ## 5. Start the Service
 
 ```bash
@@ -87,3 +117,4 @@ Before pushing to GitHub:
 - keep the assistant workspace on an encrypted user account
 - require Touch ID or password to unlock the Mac
 - keep browser automation limited to dedicated profiles
+- keep Google OAuth client secrets and refresh tokens in Keychain, not shell startup files

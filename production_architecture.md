@@ -53,6 +53,11 @@ Do not use a skill alone or browser automation alone as the production architect
 6. Every privileged action should be auditable.
 7. The system should degrade safely to read-only behavior when uncertain.
 
+Current implementation note:
+
+- Gmail and Google Calendar follow the preferred API-first path using Google APIs plus macOS Keychain-backed OAuth tokens
+- CIBC follows the supervised browser-automation path because no equivalent API path is available in this project
+
 ## High-Level Architecture
 
 ```text

@@ -47,7 +47,10 @@ def _seed_content(file_name: str) -> str:
     if file_name == "integrations.json":
         return (
             '{\n  "cibc": {\n    "card_number_service": null,\n    "card_number_account": null,\n'
-            '    "password_service": null,\n    "password_account": null\n  }\n}\n'
+            '    "password_service": null,\n    "password_account": null\n  },\n'
+            '  "google": {\n    "client_id": null,\n    "oauth_port": 8765,\n'
+            '    "client_secret_service": null,\n    "client_secret_account": null,\n'
+            '    "refresh_token_service": null,\n    "refresh_token_account": null\n  }\n}\n'
         )
     return ""
 
@@ -59,25 +62,47 @@ def repair_integrations_config(path: Path) -> bool:
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     cibc = payload.get("cibc")
+    google = payload.get("google")
     if not isinstance(cibc, dict):
         path.write_text(_seed_content(path.name), encoding="utf-8")
         return True
 
-    expected_keys = {
+    cibc_expected_keys = {
         "card_number_service",
         "card_number_account",
         "password_service",
         "password_account",
     }
-    if expected_keys.issubset(cibc):
-        return False
-
-    payload["cibc"] = {
-        "card_number_service": None,
-        "card_number_account": None,
-        "password_service": None,
-        "password_account": None,
+    google_expected_keys = {
+        "client_id",
+        "oauth_port",
+        "client_secret_service",
+        "client_secret_account",
+        "refresh_token_service",
+        "refresh_token_account",
     }
+
+    changed = False
+    if not cibc_expected_keys.issubset(cibc):
+        payload["cibc"] = {
+            "card_number_service": None,
+            "card_number_account": None,
+            "password_service": None,
+            "password_account": None,
+        }
+        changed = True
+    if not isinstance(google, dict) or not google_expected_keys.issubset(google):
+        payload["google"] = {
+            "client_id": None,
+            "oauth_port": 8765,
+            "client_secret_service": None,
+            "client_secret_account": None,
+            "refresh_token_service": None,
+            "refresh_token_account": None,
+        }
+        changed = True
+    if not changed:
+        return False
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return True
 

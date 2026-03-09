@@ -14,8 +14,18 @@ class CibcIntegrationConfig(BaseModel):
     password_account: str | None = None
 
 
+class GoogleIntegrationConfig(BaseModel):
+    client_id: str | None = None
+    oauth_port: int | None = None
+    client_secret_service: str | None = None
+    client_secret_account: str | None = None
+    refresh_token_service: str | None = None
+    refresh_token_account: str | None = None
+
+
 class IntegrationsConfig(BaseModel):
     cibc: CibcIntegrationConfig = CibcIntegrationConfig()
+    google: GoogleIntegrationConfig = GoogleIntegrationConfig()
 
     @classmethod
     def load(cls, path: Path) -> "IntegrationsConfig":
@@ -48,6 +58,30 @@ def configure_cibc_keychain(
     return path
 
 
+def configure_google_keychain(
+    workspace_root: Path,
+    *,
+    client_id: str,
+    oauth_port: int,
+    client_secret_service: str,
+    client_secret_account: str,
+    refresh_token_service: str,
+    refresh_token_account: str,
+) -> Path:
+    path = workspace_root / "config" / "integrations.json"
+    config = IntegrationsConfig.load(path)
+    config.google = GoogleIntegrationConfig(
+        client_id=client_id,
+        oauth_port=oauth_port,
+        client_secret_service=client_secret_service,
+        client_secret_account=client_secret_account,
+        refresh_token_service=refresh_token_service,
+        refresh_token_account=refresh_token_account,
+    )
+    config.save(path)
+    return path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Configure macOS Keychain integration identifiers.")
     parser.add_argument("--workspace", default=".", help="Workspace root to configure.")
@@ -63,5 +97,28 @@ def main() -> None:
         card_number_account=args.cibc_card_number_account,
         password_service=args.cibc_password_service,
         password_account=args.cibc_password_account,
+    )
+    print(path)
+
+
+def google_main() -> None:
+    parser = argparse.ArgumentParser(description="Configure Google OAuth integration identifiers.")
+    parser.add_argument("--workspace", default=".", help="Workspace root to configure.")
+    parser.add_argument("--google-client-id", required=True, help="Google OAuth client ID.")
+    parser.add_argument("--google-oauth-port", type=int, default=8765, help="Loopback OAuth callback port.")
+    parser.add_argument("--google-client-secret-service", required=True, help="Keychain service name for the Google OAuth client secret.")
+    parser.add_argument("--google-client-secret-account", required=True, help="Keychain account name for the Google OAuth client secret.")
+    parser.add_argument("--google-refresh-token-service", required=True, help="Keychain service name for the Google refresh token.")
+    parser.add_argument("--google-refresh-token-account", required=True, help="Keychain account name for the Google refresh token.")
+    args = parser.parse_args()
+
+    path = configure_google_keychain(
+        Path(args.workspace).resolve(),
+        client_id=args.google_client_id,
+        oauth_port=args.google_oauth_port,
+        client_secret_service=args.google_client_secret_service,
+        client_secret_account=args.google_client_secret_account,
+        refresh_token_service=args.google_refresh_token_service,
+        refresh_token_account=args.google_refresh_token_account,
     )
     print(path)

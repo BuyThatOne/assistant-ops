@@ -26,6 +26,12 @@ class Settings(BaseModel):
     cibc_card_number_account: str | None = None
     cibc_password_service: str | None = None
     cibc_password_account: str | None = None
+    google_refresh_token_service: str | None = None
+    google_refresh_token_account: str | None = None
+    google_client_secret_service: str | None = None
+    google_client_secret_account: str | None = None
+    google_client_id: str | None = None
+    google_oauth_port: int
 
     @classmethod
     def for_workspace(cls, workspace_root: Path) -> "Settings":
@@ -52,6 +58,12 @@ class Settings(BaseModel):
             cibc_card_number_account=integrations.cibc.card_number_account,
             cibc_password_service=integrations.cibc.password_service,
             cibc_password_account=integrations.cibc.password_account,
+            google_refresh_token_service=integrations.google.refresh_token_service,
+            google_refresh_token_account=integrations.google.refresh_token_account,
+            google_client_secret_service=integrations.google.client_secret_service,
+            google_client_secret_account=integrations.google.client_secret_account,
+            google_client_id=integrations.google.client_id or os.getenv("ASSISTANT_OPS_GOOGLE_CLIENT_ID"),
+            google_oauth_port=integrations.google.oauth_port or int(os.getenv("ASSISTANT_OPS_GOOGLE_OAUTH_PORT", "8765")),
         )
 
 

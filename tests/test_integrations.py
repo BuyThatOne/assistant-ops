@@ -1,7 +1,11 @@
 from pathlib import Path
 
 from assistant_ops.config import Settings
-from assistant_ops.integrations import IntegrationsConfig, configure_cibc_keychain
+from assistant_ops.integrations import (
+    IntegrationsConfig,
+    configure_cibc_keychain,
+    configure_google_keychain,
+)
 
 
 def test_integrations_config_loads_defaults_when_missing(tmp_path: Path) -> None:
@@ -45,3 +49,24 @@ def test_settings_reads_keychain_config_from_local_file(tmp_path: Path) -> None:
     assert settings.cibc_card_number_account == "card-number"
     assert settings.cibc_password_service == "assistant-ops.cibc"
     assert settings.cibc_password_account == "password"
+
+
+def test_configure_google_keychain_writes_local_config(tmp_path: Path) -> None:
+    path = configure_google_keychain(
+        tmp_path,
+        client_id="client-id.apps.googleusercontent.com",
+        oauth_port=8765,
+        client_secret_service="assistant-ops.google",
+        client_secret_account="client-secret",
+        refresh_token_service="assistant-ops.google",
+        refresh_token_account="refresh-token",
+    )
+
+    config = IntegrationsConfig.load(path)
+
+    assert config.google.client_id == "client-id.apps.googleusercontent.com"
+    assert config.google.oauth_port == 8765
+    assert config.google.client_secret_service == "assistant-ops.google"
+    assert config.google.client_secret_account == "client-secret"
+    assert config.google.refresh_token_service == "assistant-ops.google"
+    assert config.google.refresh_token_account == "refresh-token"

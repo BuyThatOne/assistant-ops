@@ -6,6 +6,7 @@ from typing import Protocol
 
 from assistant_ops.cibc_parser import CibcSnapshotParser
 from assistant_ops.cibc_session import CibcSessionManager
+from assistant_ops.google_client import GoogleApiClient, build_gmail_reply_raw
 from assistant_ops.models import BankAccount, CalendarEvent, EmailDraft, EmailThread, StatementEntry
 
 
@@ -142,6 +143,122 @@ class FileAccountingProvider:
         }
 
 
+class GoogleGmailProvider:
+    BASE_URL = "https://gmail.googleapis.com/gmail/v1/users/me"
+
+    def __init__(self, *, client: GoogleApiClient) -> None:
+        self._client = client
+
+    def list_threads(self, limit: int) -> list[EmailThread]:
+        payload = self._client.request_json(
+            method="GET",
+            url=f"{self.BASE_URL}/threads?maxResults={max(0, limit)}",
+        )
+        threads: list[EmailThread] = []
+        for item in payload.get("threads", []):
+            thread = self._client.request_json(
+                method="GET",
+                url=f"{self.BASE_URL}/threads/{item['id']}?format=metadata&metadataHeaders=Subject&metadataHeaders=From",
+            )
+            threads.append(self._to_email_thread(thread))
+        return threads
+
+    def draft_reply(self, thread_id: str, body: str) -> EmailDraft:
+        thread = self._client.request_json(
+            method="GET",
+            url=(
+                f"{self.BASE_URL}/threads/{thread_id}"
+                "?format=metadata&metadataHeaders=Subject&metadataHeaders=From"
+                "&metadataHeaders=Reply-To&metadataHeaders=Message-ID&metadataHeaders=References"
+            ),
+        )
+        last_message = thread["messages"][-1]
+        headers = _gmail_headers(last_message)
+        raw = build_gmail_reply_raw(
+            to_address=headers.get("Reply-To") or headers.get("From", ""),
+            subject=headers.get("Subject", "(no subject)"),
+            body=body,
+            message_id=headers.get("Message-ID"),
+            references=headers.get("References"),
+        )
+        payload = self._client.request_json(
+            method="POST",
+            url=f"{self.BASE_URL}/drafts",
+            body={
+                "message": {
+                    "threadId": thread_id,
+                    "raw": raw,
+                }
+            },
+        )
+        return EmailDraft(
+            draft_id=payload["id"],
+            thread_id=thread_id,
+            body=body,
+        )
+
+    def send_draft(self, draft_id: str) -> EmailDraft:
+        payload = self._client.request_json(
+            method="POST",
+            url=f"{self.BASE_URL}/drafts/send",
+            body={"id": draft_id},
+        )
+        return EmailDraft(
+            draft_id=draft_id,
+            thread_id=payload.get("message", {}).get("threadId", ""),
+            body="",
+            sent=True,
+        )
+
+    def _to_email_thread(self, payload: dict) -> EmailThread:
+        first_message = payload["messages"][0]
+        headers = _gmail_headers(first_message)
+        return EmailThread(
+            thread_id=payload["id"],
+            subject=headers.get("Subject", "(no subject)"),
+            sender=headers.get("From", "unknown"),
+        )
+
+
+class GoogleCalendarProvider:
+    BASE_URL = "https://www.googleapis.com/calendar/v3/calendars/primary"
+
+    def __init__(self, *, client: GoogleApiClient) -> None:
+        self._client = client
+
+    def list_events(self, day: str) -> list[CalendarEvent]:
+        time_min = f"{day}T00:00:00Z"
+        time_max = f"{day}T23:59:59Z"
+        payload = self._client.request_json(
+            method="GET",
+            url=(
+                f"{self.BASE_URL}/events?singleEvents=true&orderBy=startTime"
+                f"&timeMin={time_min}&timeMax={time_max}"
+            ),
+        )
+        return [self._to_calendar_event(item) for item in payload.get("items", [])]
+
+    def create_event(self, title: str, starts_at: str, ends_at: str) -> CalendarEvent:
+        payload = self._client.request_json(
+            method="POST",
+            url=f"{self.BASE_URL}/events",
+            body={
+                "summary": title,
+                "start": {"dateTime": starts_at},
+                "end": {"dateTime": ends_at},
+            },
+        )
+        return self._to_calendar_event(payload)
+
+    def _to_calendar_event(self, payload: dict) -> CalendarEvent:
+        return CalendarEvent(
+            event_id=payload["id"],
+            title=payload.get("summary", "(untitled event)"),
+            starts_at=payload.get("start", {}).get("dateTime", payload.get("start", {}).get("date", "")),
+            ends_at=payload.get("end", {}).get("dateTime", payload.get("end", {}).get("date", "")),
+        )
+
+
 class JsonCibcBankingProvider:
     def __init__(self, path: Path) -> None:
         self._path = path
@@ -260,3 +377,8 @@ class LiveCibcBankingProvider:
             balance="0.00",
             available_balance=None,
         )
+
+
+def _gmail_headers(message_payload: dict) -> dict[str, str]:
+    headers = message_payload.get("payload", {}).get("headers", [])
+    return {item["name"]: item["value"] for item in headers if "name" in item and "value" in item}

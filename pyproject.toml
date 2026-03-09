@@ -9,6 +9,7 @@ description = "Production-oriented MCP scaffold for a credentialed personal assi
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "certifi>=2024.8.30",
   "mcp>=1.26.0",
   "pydantic>=2.12.5",
 ]
@@ -22,6 +23,8 @@ dev = [
 assistant-ops-mcp = "assistant_ops.main:main"
 assistant-ops-init = "assistant_ops.bootstrap:main"
 assistant-ops-configure-keychain = "assistant_ops.integrations:main"
+assistant-ops-configure-google = "assistant_ops.integrations:google_main"
+assistant-ops-google-auth = "assistant_ops.google_auth:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

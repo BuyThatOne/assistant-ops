@@ -30,6 +30,12 @@ Source modules:
   browser automation flow logic.
 - `src/assistant_ops/cibc_parser.py`
   snapshot parsers for CIBC pages.
+- `src/assistant_ops/google_auth.py`
+  Google OAuth bootstrap flow and Keychain persistence.
+- `src/assistant_ops/google_client.py`
+  Google token refresh and HTTP client primitives.
+- `src/assistant_ops/tls.py`
+  TLS CA-bundle selection for Google HTTPS calls on macOS.
 - `src/assistant_ops/config.py`
   workspace and runtime configuration.
 
@@ -46,7 +52,9 @@ Source modules:
 - parser changes belong in focused unit tests
 - settings and config changes need dedicated regression tests
 - browser-flow logic needs sequenced fake-runner tests
+- Google HTTPS/TLS handling needs regression coverage because local Python certificate stores differ across Macs
 - live banking validation should never be required for CI
+- live Google validation should never be required for CI
 
 Run all tests:
 

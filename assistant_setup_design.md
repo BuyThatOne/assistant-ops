@@ -121,6 +121,11 @@ Normal workflow:
 3. Codex performs read, summarize, draft, export, reconcile, and navigation tasks
 4. Codex stops and requests confirmation before high-risk actions
 
+Current implementation note:
+
+- Gmail and Google Calendar are integrated through official Google APIs with OAuth desktop bootstrap and macOS Keychain-backed token storage
+- CIBC remains browser-automated because that is the practical integration path in this project
+
 Codex should not be used as:
 
 - the permanent storage location for credentials

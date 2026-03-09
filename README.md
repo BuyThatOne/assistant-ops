@@ -14,8 +14,10 @@ It is designed around four constraints:
 - MCP server entrypoint
 - approval-token gating for sensitive tools
 - audit logging
-- JSON-backed demo providers for email and calendar
+- Google API-backed Gmail and Google Calendar providers when configured
+- JSON-backed email and calendar demo providers as fallback
 - macOS Keychain-backed credential retrieval
+- Google OAuth bootstrap with Keychain refresh-token storage
 - Playwright-driven CIBC browser automation
 - live CIBC account, mortgage, and statement workflows
 
@@ -131,6 +133,77 @@ Example contents:
 }
 ```
 
+## Google OAuth Bootstrap
+
+Google integration is implemented for Gmail and Google Calendar, with local OAuth bootstrap and Keychain-backed refresh-token storage.
+
+Live-validated Google features in this repo:
+
+- Gmail thread listing against a real mailbox
+- Gmail draft reply creation against a real thread
+- Google Calendar event listing against a real calendar
+- Google Calendar event creation against a real calendar
+- OAuth callback, token exchange, and Keychain refresh-token persistence on macOS
+- explicit TLS CA-bundle handling for Google HTTPS calls on Macs with incomplete Python certificate stores
+
+Current Google features:
+
+- Google OAuth desktop-flow bootstrap CLI
+- loopback callback handling
+- authorization URL generation
+- access-token / refresh-token exchange
+- Keychain refresh-token storage
+- local non-secret Google integration mapping
+- Gmail thread listing
+- Gmail draft reply creation
+- Gmail draft send
+- Google Calendar event listing
+- Google Calendar event creation
+
+Preferred setup uses local config plus Keychain.
+
+Store the Google OAuth client secret in Keychain:
+
+```bash
+security add-generic-password -U -s assistant-ops.google -a client-secret -w 'YOUR_GOOGLE_CLIENT_SECRET'
+```
+
+Write the non-secret Google config:
+
+```bash
+assistant-ops-configure-google \
+  --workspace "$WORKSPACE" \
+  --google-client-id 'your-client-id.apps.googleusercontent.com' \
+  --google-oauth-port 8765 \
+  --google-client-secret-service assistant-ops.google \
+  --google-client-secret-account client-secret \
+  --google-refresh-token-service assistant-ops.google \
+  --google-refresh-token-account refresh-token
+```
+
+Optional environment-variable fallback:
+
+```bash
+export ASSISTANT_OPS_GOOGLE_CLIENT_ID='your-google-client-id'
+export ASSISTANT_OPS_GOOGLE_OAUTH_PORT='8765'
+```
+
+Bootstrap command:
+
+```bash
+assistant-ops-google-auth --workspace "$WORKSPACE"
+```
+
+This stores the Google refresh-token location in `config/integrations.json` and writes the actual refresh token to macOS Keychain.
+
+Once configured, the existing MCP tools automatically use Google APIs:
+
+- `list_email_threads`
+- `draft_email_reply`
+- `send_email`
+- `list_calendar_events`
+- `create_calendar_event`
+
 ## Runtime Configuration
 
 Optional environment overrides:
@@ -141,6 +214,10 @@ Optional environment overrides:
   Override the macOS `security` binary path.
 - `ASSISTANT_OPS_CIBC_PLAYWRIGHT_SESSION`
   Override the browser session name used for CIBC flows.
+- `ASSISTANT_OPS_GOOGLE_CLIENT_ID`
+  Google OAuth client ID for Gmail and Calendar.
+- `ASSISTANT_OPS_GOOGLE_OAUTH_PORT`
+  Loopback OAuth callback port for the bootstrap flow.
 
 If `ASSISTANT_OPS_PWCLI_PATH` is not set, the app uses the bundled Codex Playwright wrapper when present and falls back to `playwright-cli` on `PATH`.
 
@@ -169,6 +246,8 @@ If `ASSISTANT_OPS_PWCLI_PATH` is not set, the app uses the bundled Codex Playwri
 
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [Development Guide](docs/DEVELOPMENT.md)
+- [Google Integration Plan](docs/GOOGLE_INTEGRATION_PLAN.md)
+- [Google Setup Guide](docs/GOOGLE_SETUP.md)
 - [Local Setup Design](assistant_setup_design.md)
 - [Production Architecture](production_architecture.md)
 
@@ -180,12 +259,14 @@ Implemented:
 - provider-oriented service structure
 - macOS Keychain-backed browser sign-in for CIBC
 - live CIBC statement download for validated statement-list flows
-- mortgage-detail and mortgage annual-summary browser flows have been validated against a live CIBC session
+- mortgage-detail and mortgage annual-summary browser flows validated against a live CIBC session
+- live Gmail read and draft creation via Google APIs
+- live Google Calendar read and event creation via Google APIs
 
 Still needed for broader production use:
 
-- real email provider adapter
-- real calendar provider adapter
+- safer first-class new outbound email drafting instead of reply-only send flows
+- event update/delete coverage if Calendar lifecycle management is needed
 - dedicated MCP tools for mortgage-specific reads such as annual interest and tax-history extraction
 - more banking providers and broader account-type coverage
 - transport-level MCP client integration tests
