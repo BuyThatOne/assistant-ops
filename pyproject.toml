@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "assistant-ops"
+version = "0.1.0"
+description = "Production-oriented MCP scaffold for a credentialed personal assistant"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "mcp>=1.26.0",
+  "pydantic>=2.12.5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9.0.2",
+]
+
+[project.scripts]
+assistant-ops-mcp = "assistant_ops.main:main"
+assistant-ops-init = "assistant_ops.bootstrap:main"
+assistant-ops-configure-keychain = "assistant_ops.integrations:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
