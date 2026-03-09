@@ -19,6 +19,38 @@ It is designed around four constraints:
 - Playwright-driven CIBC browser automation
 - live CIBC account, mortgage, and statement workflows
 
+## Current CIBC Capabilities
+
+Live-validated CIBC features in this repo:
+
+- automatic sign-in using macOS Keychain credentials
+- authenticated session reuse when a CIBC browser session is already active
+- account listing from the CIBC home page
+- balance extraction for deposit, lending, investment, and mortgage accounts visible on the home page
+- account-statement discovery from `My Documents`
+- real PDF statement download for supported statement-list flows
+- mortgage detail-page navigation
+- mortgage annual-summary access through the mortgage `View:` selector
+
+Currently exposed as MCP tools:
+
+- `list_cibc_accounts`
+- `get_cibc_account_balance`
+- `list_cibc_statements`
+- `download_cibc_statement`
+- `open_cibc_login`
+- `auto_sign_in_cibc`
+- `open_cibc_my_documents`
+- `open_cibc_account_statements`
+- `capture_cibc_session_snapshot`
+- `capture_cibc_account_statements_snapshot`
+
+Available in the code path today but not yet promoted to dedicated MCP tools:
+
+- mortgage detail-page inspection
+- mortgage annual-summary inspection
+- retrieval of annual values such as `Interest Paid` from the mortgage annual summary page
+
 ## Repository Layout
 
 ```text
@@ -148,10 +180,12 @@ Implemented:
 - provider-oriented service structure
 - macOS Keychain-backed browser sign-in for CIBC
 - live CIBC statement download for validated statement-list flows
+- mortgage-detail and mortgage annual-summary browser flows have been validated against a live CIBC session
 
 Still needed for broader production use:
 
 - real email provider adapter
 - real calendar provider adapter
+- dedicated MCP tools for mortgage-specific reads such as annual interest and tax-history extraction
 - more banking providers and broader account-type coverage
 - transport-level MCP client integration tests
