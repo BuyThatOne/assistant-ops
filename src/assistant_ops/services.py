@@ -114,6 +114,22 @@ class GuardedService:
             details={"threads": threads},
         )
 
+    def search_email_threads(self, query: str, limit: int = 10) -> ToolResult:
+        threads = [thread.model_dump(mode="json") for thread in self._email.search_threads(query, limit)]
+        return self.run(
+            tool_name="search_email_threads",
+            target=query,
+            details={"query": query, "threads": threads},
+        )
+
+    def get_email_thread(self, thread_id: str) -> ToolResult:
+        thread = self._email.get_thread(thread_id)
+        return self.run(
+            tool_name="get_email_thread",
+            target=thread_id,
+            details=thread,
+        )
+
     def draft_email_reply(self, thread_id: str, body: str) -> ToolResult:
         draft = self._email.draft_reply(thread_id, body)
         return self.run(
@@ -163,6 +179,56 @@ class GuardedService:
             ok=True,
             message="create_calendar_event completed.",
             data=event.model_dump(mode="json"),
+        )
+
+    def update_calendar_event(
+        self,
+        *,
+        event_id: str,
+        title: str | None = None,
+        starts_at: str | None = None,
+        ends_at: str | None = None,
+        approval_id: str | None = None,
+    ) -> ToolResult:
+        result = self.run(
+            tool_name="update_calendar_event",
+            target=event_id,
+            details={
+                "event_id": event_id,
+                "title": title,
+                "starts_at": starts_at,
+                "ends_at": ends_at,
+            },
+            approval_id=approval_id,
+        )
+        if not result.ok:
+            return result
+        event = self._calendar.update_event(
+            event_id,
+            title=title,
+            starts_at=starts_at,
+            ends_at=ends_at,
+        )
+        return ToolResult(
+            ok=True,
+            message="update_calendar_event completed.",
+            data=event.model_dump(mode="json"),
+        )
+
+    def delete_calendar_event(self, event_id: str, approval_id: str | None = None) -> ToolResult:
+        result = self.run(
+            tool_name="delete_calendar_event",
+            target=event_id,
+            details={"event_id": event_id},
+            approval_id=approval_id,
+        )
+        if not result.ok:
+            return result
+        self._calendar.delete_event(event_id)
+        return ToolResult(
+            ok=True,
+            message="delete_calendar_event completed.",
+            data={"event_id": event_id, "deleted": True},
         )
 
     def download_statement(self, account_id: str, month: str) -> ToolResult:

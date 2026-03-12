@@ -9,6 +9,11 @@ It is designed around four constraints:
 - browser automation remains supervised and auditable
 - integrations are replaceable behind narrow provider interfaces
 
+Operating model:
+
+- setup, bootstrap, and credential configuration use local CLI commands
+- operational email, calendar, and banking actions are intended to run through MCP tools
+
 ## What It Includes
 
 - MCP server entrypoint
@@ -199,10 +204,14 @@ This stores the Google refresh-token location in `config/integrations.json` and 
 Once configured, the existing MCP tools automatically use Google APIs:
 
 - `list_email_threads`
+- `search_email_threads`
+- `get_email_thread`
 - `draft_email_reply`
 - `send_email`
 - `list_calendar_events`
 - `create_calendar_event`
+- `update_calendar_event`
+- `delete_calendar_event`
 
 ## Runtime Configuration
 
@@ -225,10 +234,14 @@ If `ASSISTANT_OPS_PWCLI_PATH` is not set, the app uses the bundled Codex Playwri
 
 - `create_approval_request`
 - `list_email_threads`
+- `search_email_threads`
+- `get_email_thread`
 - `draft_email_reply`
 - `send_email`
 - `list_calendar_events`
 - `create_calendar_event`
+- `update_calendar_event`
+- `delete_calendar_event`
 - `download_statement`
 - `list_cibc_accounts`
 - `get_cibc_account_balance`
@@ -261,12 +274,11 @@ Implemented:
 - live CIBC statement download for validated statement-list flows
 - mortgage-detail and mortgage annual-summary browser flows validated against a live CIBC session
 - live Gmail read and draft creation via Google APIs
-- live Google Calendar read and event creation via Google APIs
+- live Google Calendar read, create, update, and delete via Google APIs
 
 Still needed for broader production use:
 
 - safer first-class new outbound email drafting instead of reply-only send flows
-- event update/delete coverage if Calendar lifecycle management is needed
 - dedicated MCP tools for mortgage-specific reads such as annual interest and tax-history extraction
 - more banking providers and broader account-type coverage
 - transport-level MCP client integration tests

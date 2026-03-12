@@ -9,6 +9,8 @@ class FakeGoogleClient:
         self.calls.append((method, url, body))
         if url.endswith("/threads?maxResults=2"):
             return {"threads": [{"id": "thr_1"}, {"id": "thr_2"}]}
+        if "threads?maxResults=2&q=uber" in url:
+            return {"threads": [{"id": "thr_2"}]}
         if "/threads/thr_1" in url:
             return {
                 "id": "thr_1",
@@ -34,6 +36,24 @@ class FakeGoogleClient:
                                 {"name": "From", "value": "cal@example.com"},
                             ]
                         }
+                    }
+                ],
+            }
+        if "/threads/thread-detail" in url:
+            return {
+                "id": "thread-detail",
+                "messages": [
+                    {
+                        "id": "msg-1",
+                        "snippet": "First snippet",
+                        "payload": {
+                            "headers": [
+                                {"name": "Subject", "value": "Detailed thread"},
+                                {"name": "From", "value": "sender@example.com"},
+                                {"name": "To", "value": "to@example.com"},
+                                {"name": "Date", "value": "Thu, 12 Mar 2026 09:00:00 -0400"},
+                            ]
+                        },
                     }
                 ],
             }
@@ -76,6 +96,15 @@ class FakeGoogleClient:
                 "start": body["start"],
                 "end": body["end"],
             }
+        if "/events/evt-2" in url and method == "PATCH":
+            return {
+                "id": "evt-2",
+                "summary": body.get("summary", "Planning review"),
+                "start": body.get("start", {"dateTime": "2026-03-10T13:00:00-05:00"}),
+                "end": body.get("end", {"dateTime": "2026-03-10T13:30:00-05:00"}),
+            }
+        if "/events/evt-2" in url and method == "DELETE":
+            return {}
         raise AssertionError(f"Unexpected call: {(method, url, body)}")
 
 
@@ -101,6 +130,18 @@ def test_google_gmail_provider_creates_and_sends_draft() -> None:
     assert sent.thread_id == "thread-reply"
 
 
+def test_google_gmail_provider_can_search_and_load_thread() -> None:
+    provider = GoogleGmailProvider(client=FakeGoogleClient())
+
+    threads = provider.search_threads("uber", 2)
+    thread = provider.get_thread("thread-detail")
+
+    assert len(threads) == 1
+    assert threads[0].thread_id == "thr_2"
+    assert thread["thread_id"] == "thread-detail"
+    assert thread["messages"][0]["snippet"] == "First snippet"
+
+
 def test_google_calendar_provider_lists_and_creates_events() -> None:
     provider = GoogleCalendarProvider(client=FakeGoogleClient())
 
@@ -115,3 +156,14 @@ def test_google_calendar_provider_lists_and_creates_events() -> None:
     assert events[0].event_id == "evt-1"
     assert created.event_id == "evt-2"
     assert created.title == "Planning review"
+
+
+def test_google_calendar_provider_updates_and_deletes_events() -> None:
+    client = FakeGoogleClient()
+    provider = GoogleCalendarProvider(client=client)
+
+    updated = provider.update_event("evt-2", title="Updated review")
+    provider.delete_event("evt-2")
+
+    assert updated.title == "Updated review"
+    assert ("DELETE", "https://www.googleapis.com/calendar/v3/calendars/primary/events/evt-2", None) in client.calls

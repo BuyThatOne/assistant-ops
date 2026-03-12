@@ -6,6 +6,7 @@
 - Keep runtime state outside source-controlled files.
 - Add tests for every new settings path, parser, or browser-flow branch.
 - Prefer environment-configurable paths over machine-specific defaults.
+- Keep setup and bootstrap as CLI commands, but route operational actions through MCP tools.
 
 ## Install for Development
 

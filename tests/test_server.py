@@ -13,7 +13,11 @@ def test_server_registers_expected_tools(tmp_path: Path) -> None:
 
     assert "create_approval_request" in tool_names
     assert "list_email_threads" in tool_names
+    assert "search_email_threads" in tool_names
+    assert "get_email_thread" in tool_names
     assert "send_email" in tool_names
+    assert "update_calendar_event" in tool_names
+    assert "delete_calendar_event" in tool_names
     assert "download_statement" in tool_names
     assert "list_cibc_accounts" in tool_names
     assert "get_cibc_account_balance" in tool_names

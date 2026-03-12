@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Protocol
+from urllib.parse import quote
 
 from assistant_ops.cibc_parser import CibcSnapshotParser
 from assistant_ops.cibc_session import CibcSessionManager
@@ -12,6 +13,8 @@ from assistant_ops.models import BankAccount, CalendarEvent, EmailDraft, EmailTh
 
 class EmailProvider(Protocol):
     def list_threads(self, limit: int) -> list[EmailThread]: ...
+    def search_threads(self, query: str, limit: int) -> list[EmailThread]: ...
+    def get_thread(self, thread_id: str) -> dict[str, object]: ...
     def draft_reply(self, thread_id: str, body: str) -> EmailDraft: ...
     def send_draft(self, draft_id: str) -> EmailDraft: ...
 
@@ -19,6 +22,15 @@ class EmailProvider(Protocol):
 class CalendarProvider(Protocol):
     def list_events(self, day: str) -> list[CalendarEvent]: ...
     def create_event(self, title: str, starts_at: str, ends_at: str) -> CalendarEvent: ...
+    def update_event(
+        self,
+        event_id: str,
+        *,
+        title: str | None = None,
+        starts_at: str | None = None,
+        ends_at: str | None = None,
+    ) -> CalendarEvent: ...
+    def delete_event(self, event_id: str) -> None: ...
 
 
 class AccountingProvider(Protocol):
@@ -43,6 +55,34 @@ class JsonEmailProvider:
         payload = self._read()
         threads = [EmailThread.model_validate(item) for item in payload["threads"]]
         return threads[: max(0, limit)]
+
+    def search_threads(self, query: str, limit: int) -> list[EmailThread]:
+        needle = query.casefold()
+        payload = self._read()
+        threads = [EmailThread.model_validate(item) for item in payload["threads"]]
+        matches = [
+            thread
+            for thread in threads
+            if needle in thread.subject.casefold() or needle in thread.sender.casefold()
+        ]
+        return matches[: max(0, limit)]
+
+    def get_thread(self, thread_id: str) -> dict[str, object]:
+        for thread in self._read()["threads"]:
+            if thread["thread_id"] == thread_id:
+                return {
+                    "thread_id": thread["thread_id"],
+                    "subject": thread["subject"],
+                    "messages": [
+                        {
+                            "message_id": f"{thread_id}-1",
+                            "sender": thread["sender"],
+                            "date": "",
+                            "snippet": thread["subject"],
+                        }
+                    ],
+                }
+        raise ValueError(f"Unknown thread id: {thread_id}")
 
     def draft_reply(self, thread_id: str, body: str) -> EmailDraft:
         payload = self._read()
@@ -113,6 +153,37 @@ class JsonCalendarProvider:
         self._write(payload)
         return event
 
+    def update_event(
+        self,
+        event_id: str,
+        *,
+        title: str | None = None,
+        starts_at: str | None = None,
+        ends_at: str | None = None,
+    ) -> CalendarEvent:
+        payload = self._read()
+        events = [CalendarEvent.model_validate(item) for item in payload["events"]]
+        for index, event in enumerate(events):
+            if event.event_id == event_id:
+                updated = event.model_copy(
+                    update={
+                        "title": title or event.title,
+                        "starts_at": starts_at or event.starts_at,
+                        "ends_at": ends_at or event.ends_at,
+                    }
+                )
+                events[index] = updated
+                payload["events"] = [item.model_dump(mode="json") for item in events]
+                self._write(payload)
+                return updated
+        raise ValueError(f"Unknown event id: {event_id}")
+
+    def delete_event(self, event_id: str) -> None:
+        payload = self._read()
+        events = [CalendarEvent.model_validate(item) for item in payload["events"]]
+        payload["events"] = [item.model_dump(mode="json") for item in events if item.event_id != event_id]
+        self._write(payload)
+
     def _read(self) -> dict:
         return json.loads(self._path.read_text(encoding="utf-8"))
 
@@ -150,9 +221,13 @@ class GoogleGmailProvider:
         self._client = client
 
     def list_threads(self, limit: int) -> list[EmailThread]:
+        return self.search_threads("", limit)
+
+    def search_threads(self, query: str, limit: int) -> list[EmailThread]:
+        query_param = f"&q={quote(query)}" if query else ""
         payload = self._client.request_json(
             method="GET",
-            url=f"{self.BASE_URL}/threads?maxResults={max(0, limit)}",
+            url=f"{self.BASE_URL}/threads?maxResults={max(0, limit)}{query_param}",
         )
         threads: list[EmailThread] = []
         for item in payload.get("threads", []):
@@ -162,6 +237,35 @@ class GoogleGmailProvider:
             )
             threads.append(self._to_email_thread(thread))
         return threads
+
+    def get_thread(self, thread_id: str) -> dict[str, object]:
+        payload = self._client.request_json(
+            method="GET",
+            url=(
+                f"{self.BASE_URL}/threads/{thread_id}"
+                "?format=full&metadataHeaders=Subject&metadataHeaders=From"
+                "&metadataHeaders=To&metadataHeaders=Date"
+            ),
+        )
+        subject = "(no subject)"
+        messages: list[dict[str, str]] = []
+        for message in payload.get("messages", []):
+            headers = _gmail_headers(message)
+            subject = headers.get("Subject", subject)
+            messages.append(
+                {
+                    "message_id": message.get("id", ""),
+                    "sender": headers.get("From", "unknown"),
+                    "to": headers.get("To", ""),
+                    "date": headers.get("Date", ""),
+                    "snippet": message.get("snippet", ""),
+                }
+            )
+        return {
+            "thread_id": payload["id"],
+            "subject": subject,
+            "messages": messages,
+        }
 
     def draft_reply(self, thread_id: str, body: str) -> EmailDraft:
         thread = self._client.request_json(
@@ -249,6 +353,34 @@ class GoogleCalendarProvider:
             },
         )
         return self._to_calendar_event(payload)
+
+    def update_event(
+        self,
+        event_id: str,
+        *,
+        title: str | None = None,
+        starts_at: str | None = None,
+        ends_at: str | None = None,
+    ) -> CalendarEvent:
+        body: dict[str, object] = {}
+        if title is not None:
+            body["summary"] = title
+        if starts_at is not None:
+            body["start"] = {"dateTime": starts_at}
+        if ends_at is not None:
+            body["end"] = {"dateTime": ends_at}
+        payload = self._client.request_json(
+            method="PATCH",
+            url=f"{self.BASE_URL}/events/{event_id}",
+            body=body,
+        )
+        return self._to_calendar_event(payload)
+
+    def delete_event(self, event_id: str) -> None:
+        self._client.request_json(
+            method="DELETE",
+            url=f"{self.BASE_URL}/events/{event_id}",
+        )
 
     def _to_calendar_event(self, payload: dict) -> CalendarEvent:
         return CalendarEvent(

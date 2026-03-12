@@ -18,6 +18,8 @@ class PolicyEngine:
     _READ_ONLY_TOOLS = frozenset(
         {
             "list_email_threads",
+            "search_email_threads",
+            "get_email_thread",
             "draft_email_reply",
             "list_calendar_events",
             "download_statement",
@@ -34,7 +36,7 @@ class PolicyEngine:
             "list_recent_actions",
         }
     )
-    _WRITE_TOOLS = frozenset({"send_email", "create_calendar_event"})
+    _WRITE_TOOLS = frozenset({"send_email", "create_calendar_event", "update_calendar_event", "delete_calendar_event"})
 
     def evaluate(self, tool_name: str) -> PolicyDecision:
         if tool_name in self._READ_ONLY_TOOLS:

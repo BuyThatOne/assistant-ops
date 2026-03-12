@@ -85,6 +85,14 @@ def build_server(workspace_root: Path, *, actor: str = "local-operator") -> Fast
     def list_email_threads(limit: int = 10) -> dict:
         return service.list_email_threads(limit).model_dump(mode="json")
 
+    @mcp.tool(description="Search email threads in the primary mailbox.")
+    def search_email_threads(query: str, limit: int = 10) -> dict:
+        return service.search_email_threads(query, limit).model_dump(mode="json")
+
+    @mcp.tool(description="Load message metadata and snippets for a specific email thread.")
+    def get_email_thread(thread_id: str) -> dict:
+        return service.get_email_thread(thread_id).model_dump(mode="json")
+
     @mcp.tool(description="Draft a reply for a given email thread without sending it.")
     def draft_email_reply(thread_id: str, body: str) -> dict:
         return service.draft_email_reply(thread_id, body).model_dump(mode="json")
@@ -110,6 +118,26 @@ def build_server(workspace_root: Path, *, actor: str = "local-operator") -> Fast
             ends_at=ends_at,
             approval_id=approval_id,
         ).model_dump(mode="json")
+
+    @mcp.tool(description="Update an existing calendar event. Requires approval.")
+    def update_calendar_event(
+        event_id: str,
+        title: str | None = None,
+        starts_at: str | None = None,
+        ends_at: str | None = None,
+        approval_id: str | None = None,
+    ) -> dict:
+        return service.update_calendar_event(
+            event_id=event_id,
+            title=title,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            approval_id=approval_id,
+        ).model_dump(mode="json")
+
+    @mcp.tool(description="Delete a calendar event. Requires approval.")
+    def delete_calendar_event(event_id: str, approval_id: str | None = None) -> dict:
+        return service.delete_calendar_event(event_id, approval_id=approval_id).model_dump(mode="json")
 
     @mcp.tool(description="Plan a financial statement download and return the target file path.")
     def download_statement(account_id: str, month: str) -> dict:

@@ -90,6 +90,11 @@ Live-validated Google behavior on macOS:
 
 ## 5. Start the Service
 
+In the recommended hybrid model:
+
+- use CLI commands for setup, OAuth bootstrap, and local config writes
+- use MCP tools for operational email, calendar, and banking actions
+
 ```bash
 assistant-ops-mcp --workspace "$WORKSPACE" --transport stdio
 ```
