@@ -95,6 +95,8 @@ class FakeGoogleClient:
                 "summary": body["summary"],
                 "start": body["start"],
                 "end": body["end"],
+                "description": body.get("description"),
+                "location": body.get("location"),
             }
         if "/events/evt-2" in url and method == "PATCH":
             return {
@@ -102,6 +104,8 @@ class FakeGoogleClient:
                 "summary": body.get("summary", "Planning review"),
                 "start": body.get("start", {"dateTime": "2026-03-10T13:00:00-05:00"}),
                 "end": body.get("end", {"dateTime": "2026-03-10T13:30:00-05:00"}),
+                "description": body.get("description"),
+                "location": body.get("location"),
             }
         if "/events/evt-2" in url and method == "DELETE":
             return {}
@@ -162,8 +166,15 @@ def test_google_calendar_provider_updates_and_deletes_events() -> None:
     client = FakeGoogleClient()
     provider = GoogleCalendarProvider(client=client)
 
-    updated = provider.update_event("evt-2", title="Updated review")
+    updated = provider.update_event(
+        "evt-2",
+        title="Updated review",
+        description="Join Zoom",
+        location="https://example.com/zoom",
+    )
     provider.delete_event("evt-2")
 
     assert updated.title == "Updated review"
+    assert updated.description == "Join Zoom"
+    assert updated.location == "https://example.com/zoom"
     assert ("DELETE", "https://www.googleapis.com/calendar/v3/calendars/primary/events/evt-2", None) in client.calls

@@ -29,6 +29,8 @@ class CalendarProvider(Protocol):
         title: str | None = None,
         starts_at: str | None = None,
         ends_at: str | None = None,
+        description: str | None = None,
+        location: str | None = None,
     ) -> CalendarEvent: ...
     def delete_event(self, event_id: str) -> None: ...
 
@@ -160,6 +162,8 @@ class JsonCalendarProvider:
         title: str | None = None,
         starts_at: str | None = None,
         ends_at: str | None = None,
+        description: str | None = None,
+        location: str | None = None,
     ) -> CalendarEvent:
         payload = self._read()
         events = [CalendarEvent.model_validate(item) for item in payload["events"]]
@@ -170,6 +174,8 @@ class JsonCalendarProvider:
                         "title": title or event.title,
                         "starts_at": starts_at or event.starts_at,
                         "ends_at": ends_at or event.ends_at,
+                        "description": description if description is not None else event.description,
+                        "location": location if location is not None else event.location,
                     }
                 )
                 events[index] = updated
@@ -361,6 +367,8 @@ class GoogleCalendarProvider:
         title: str | None = None,
         starts_at: str | None = None,
         ends_at: str | None = None,
+        description: str | None = None,
+        location: str | None = None,
     ) -> CalendarEvent:
         body: dict[str, object] = {}
         if title is not None:
@@ -369,6 +377,10 @@ class GoogleCalendarProvider:
             body["start"] = {"dateTime": starts_at}
         if ends_at is not None:
             body["end"] = {"dateTime": ends_at}
+        if description is not None:
+            body["description"] = description
+        if location is not None:
+            body["location"] = location
         payload = self._client.request_json(
             method="PATCH",
             url=f"{self.BASE_URL}/events/{event_id}",
@@ -388,6 +400,8 @@ class GoogleCalendarProvider:
             title=payload.get("summary", "(untitled event)"),
             starts_at=payload.get("start", {}).get("dateTime", payload.get("start", {}).get("date", "")),
             ends_at=payload.get("end", {}).get("dateTime", payload.get("end", {}).get("date", "")),
+            description=payload.get("description"),
+            location=payload.get("location"),
         )
 
 

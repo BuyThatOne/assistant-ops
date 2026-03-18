@@ -188,6 +188,8 @@ class GuardedService:
         title: str | None = None,
         starts_at: str | None = None,
         ends_at: str | None = None,
+        description: str | None = None,
+        location: str | None = None,
         approval_id: str | None = None,
     ) -> ToolResult:
         result = self.run(
@@ -198,6 +200,8 @@ class GuardedService:
                 "title": title,
                 "starts_at": starts_at,
                 "ends_at": ends_at,
+                "description": description,
+                "location": location,
             },
             approval_id=approval_id,
         )
@@ -208,6 +212,8 @@ class GuardedService:
             title=title,
             starts_at=starts_at,
             ends_at=ends_at,
+            description=description,
+            location=location,
         )
         return ToolResult(
             ok=True,

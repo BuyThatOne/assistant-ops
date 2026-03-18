@@ -61,6 +61,8 @@ class CalendarEvent(BaseModel):
     title: str
     starts_at: str
     ends_at: str
+    description: str | None = None
+    location: str | None = None
 
 
 class EmailDraft(BaseModel):

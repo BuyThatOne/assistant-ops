@@ -125,6 +125,8 @@ def build_server(workspace_root: Path, *, actor: str = "local-operator") -> Fast
         title: str | None = None,
         starts_at: str | None = None,
         ends_at: str | None = None,
+        description: str | None = None,
+        location: str | None = None,
         approval_id: str | None = None,
     ) -> dict:
         return service.update_calendar_event(
@@ -132,6 +134,8 @@ def build_server(workspace_root: Path, *, actor: str = "local-operator") -> Fast
             title=title,
             starts_at=starts_at,
             ends_at=ends_at,
+            description=description,
+            location=location,
             approval_id=approval_id,
         ).model_dump(mode="json")
 

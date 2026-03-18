@@ -158,6 +158,8 @@ def test_calendar_update_and_delete_require_approval_and_mutate_state(tmp_path: 
     updated = service.update_calendar_event(
         event_id=created.data["event_id"],
         title="Updated budget review",
+        description="Updated notes",
+        location="https://example.com/meeting",
         approval_id=update_approval.data["approval_id"],
     )
     delete_approval = service.create_approval_request(
@@ -172,6 +174,8 @@ def test_calendar_update_and_delete_require_approval_and_mutate_state(tmp_path: 
 
     assert updated.ok is True
     assert updated.data["title"] == "Updated budget review"
+    assert updated.data["description"] == "Updated notes"
+    assert updated.data["location"] == "https://example.com/meeting"
     assert deleted.ok is True
     assert deleted.data["deleted"] is True
 
